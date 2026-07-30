@@ -1,0 +1,659 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>8x8 Block Puzzle (Side Panel)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #ffffff; 
+            color: #333333; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            touch-action: none;
+            overflow: hidden; 
+        }
+        
+        h1 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 28px;
+            color: #2c3e50; 
+        }
+
+        .score-container {
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #d35400; 
+        }
+
+        /* 核心布局修改：改为横向排列 */
+        .game-layout {
+            display: flex;
+            flex-direction: row; /* 横向排列 */
+            align-items: center;
+            gap: 40px; /* 棋盘和右侧方块栏的间距 */
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(8, 35px); /* 恢复 35px */
+            grid-template-rows: repeat(8, 35px);    /* 恢复 35px */
+            gap: 2px;
+            background-color: #34495e; 
+            padding: 5px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .cell {
+            width: 35px; /* 恢复 35px */
+            height: 35px; /* 恢复 35px */
+            background-color: #7f8c8d; 
+            border-radius: 4px;
+            box-sizing: border-box;
+            transition: background-color 0.1s; 
+        }
+
+        .cell.filled {
+            background-color: #3498db;
+            border: 2px solid #2980b9;
+        }
+        
+        .cell.hover {
+            background-color: #95a5a6;
+            opacity: 0.8;
+            border: 2px dashed #ecf0f1;
+        }
+
+        /* 右侧方块容器修改为竖向排列 (Column) */
+        .pieces-container {
+            display: flex;
+            flex-direction: column; /* 竖向排列 */
+            justify-content: center;
+            gap: 20px; 
+            width: 120px; /* 固定宽度，防止大方块撑开影响布局 */
+            align-items: center;
+        }
+
+        .piece {
+            display: grid;
+            gap: 2px;
+            cursor: grab;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.05); 
+            border-radius: 8px;
+            touch-action: none;
+        }
+        
+        .piece:active {
+            cursor: grabbing;
+        }
+        
+        .piece.dragging {
+            position: fixed !important;
+            pointer-events: none !important;
+            z-index: 9999;
+            opacity: 0.95;
+            background-color: transparent;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        .piece-block {
+            width: 25px; /* 稍微调大一点，让右侧方块更清晰 */
+            height: 25px;
+            background-color: #e74c3c;
+            border: 2px solid #c0392b;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        .piece-empty {
+            width: 25px;
+            height: 25px;
+            background-color: transparent;
+        }
+
+        .game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.95); 
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 10000;
+            border: 2px solid #bdc3c7;
+        }
+
+        .game-over h2 {
+            color: #e74c3c;
+            font-size: 36px;
+            margin-top: 0;
+        }
+        
+        .game-over p {
+            color: #333333;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 18px;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #27ae60;
+        }
+
+        /* 针对手机屏幕，强制改回上下排列，否则横向放不下 */
+        @media (max-width: 600px) {
+            .game-layout {
+                flex-direction: column; /* 手机端恢复上下排列 */
+                gap: 20px;
+            }
+            .pieces-container {
+                flex-direction: row; /* 手机端底部方块恢复横向排列 */
+                width: 100%;
+                height: 100px;
+            }
+            .grid {
+                grid-template-columns: repeat(8, 35px); /* 保持 35px 除非屏幕实在太小 */
+                grid-template-rows: repeat(8, 35px);
+            }
+        }
+        
+        /* 极窄屏幕（如 iPhone SE）缩放 */
+        @media (max-width: 380px) {
+             .grid {
+                grid-template-columns: repeat(8, 30px); 
+                grid-template-rows: repeat(8, 30px);
+            }
+            .cell {
+                width: 30px;
+                height: 30px;
+            }
+            .piece-block, .piece-empty {
+                width: 20px;
+                height: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>8x8 Block Puzzle</h1>
+    <div class="score-container">Score: <span id="score">0</span></div>
+
+    <!-- 新增的包裹容器，用于横向排版 -->
+    <div class="game-layout">
+        <div class="grid" id="grid">
+            <!-- Grid cells generated by JS -->
+        </div>
+
+        <div class="pieces-container" id="pieces-container">
+            <!-- Pieces generated by JS -->
+        </div>
+    </div>
+
+    <div class="game-over" id="game-over">
+        <h2>Game Over!</h2>
+        <p>Your Final Score: <span id="final-score">0</span></p>
+        <button onclick="resetGame()">Play Again</button>
+    </div>
+
+    <script>
+        const GRID_SIZE = 8;
+        let grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
+        let score = 0;
+        let activePieces = [];
+        
+        // Define common block shapes
+        const SHAPES = [
+            [[1]], 
+            [[1, 1]], 
+            [[1], [1]], 
+            [[1, 1, 1]], 
+            [[1], [1], [1]], 
+            [[1, 1, 1, 1]], 
+            [[1], [1], [1], [1]], 
+            [[1, 1], [1, 1]], 
+            [[1, 1, 1], [1, 1, 1], [1, 1, 1]], 
+            [[1, 0], [1, 1]], 
+            [[0, 1], [1, 1]], 
+            [[1, 1], [1, 0]], 
+            [[1, 1], [0, 1]], 
+            [[1, 1, 1], [1, 0, 0], [1, 0, 0]], 
+            [[1, 1, 1], [0, 0, 1], [0, 0, 1]], 
+            [[1, 1, 1], [0, 1, 0]], 
+            [[0, 1, 0], [1, 1, 1]] 
+        ];
+
+        const gridElement = document.getElementById('grid');
+        const piecesContainer = document.getElementById('pieces-container');
+        const scoreElement = document.getElementById('score');
+        const gameOverElement = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+
+        // Initialize grid UI
+        function initGrid() {
+            gridElement.innerHTML = '';
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    gridElement.appendChild(cell);
+                }
+            }
+        }
+
+        function drawGrid() {
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+                    if (grid[r][c] === 1) {
+                        cell.classList.add('filled');
+                    } else {
+                        cell.classList.remove('filled');
+                    }
+                }
+            }
+        }
+
+        function generatePieces() {
+            piecesContainer.innerHTML = '';
+            activePieces = [];
+            
+            for (let i = 0; i < 3; i++) {
+                const shapeIndex = Math.floor(Math.random() * SHAPES.length);
+                const shape = SHAPES[shapeIndex];
+                activePieces.push(shape);
+                
+                const pieceElement = createPieceElement(shape, i);
+                piecesContainer.appendChild(pieceElement);
+            }
+            checkGameOver();
+        }
+
+        function createPieceElement(shape, index) {
+            const pieceContainer = document.createElement('div');
+            pieceContainer.className = 'piece';
+            pieceContainer.dataset.index = index;
+            
+            const rows = shape.length;
+            const cols = shape[0].length;
+            
+            // Allow piece grid to size naturally based on its inner blocks
+            pieceContainer.style.gridTemplateColumns = `repeat(${cols}, auto)`;
+            pieceContainer.style.gridTemplateRows = `repeat(${rows}, auto)`;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const block = document.createElement('div');
+                    // Store coordinates so we know EXACTLY which part of the shape the user is touching
+                    block.dataset.row = r;
+                    block.dataset.col = c;
+                    
+                    if (shape[r][c] === 1) {
+                        block.className = 'piece-block';
+                    } else {
+                        block.className = 'piece-empty';
+                    }
+                    pieceContainer.appendChild(block);
+                }
+            }
+
+            setupDragAndDrop(pieceContainer, shape, index);
+            return pieceContainer;
+        }
+
+        // ==========================================
+        // 核心优化区：拖拽逻辑、节流与精准对齐计算
+        // ==========================================
+
+        function getGridCellFromPoint(x, y) {
+            const gridRect = gridElement.getBoundingClientRect();
+            // 如果超出了格子的边界，直接返回 null，节省性能
+            if (x < gridRect.left || x > gridRect.right || y < gridRect.top || y > gridRect.bottom) {
+                return null;
+            }
+            
+            const gridCell = document.querySelector('.cell');
+            if (!gridCell) return null;
+            
+            const cellTotal = gridCell.offsetWidth + 2; // 方块宽度 + gap(2px)
+            const gap = parseFloat(window.getComputedStyle(gridElement).gap) || 2;
+            const actualCellTotal = gridCell.offsetWidth + gap;
+
+            const paddingStr = window.getComputedStyle(gridElement).paddingLeft;
+            const padding = parseFloat(paddingStr) || 5; 
+            
+            const relX = x - gridRect.left - padding;
+            const relY = y - gridRect.top - padding;
+            
+            const col = Math.floor(relX / actualCellTotal);
+            const row = Math.floor(relY / actualCellTotal);
+            
+            if (row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE) {
+                return { row, col };
+            }
+            return null;
+        }
+
+        function setupDragAndDrop(element, shape, pieceIndex) {
+            let isDragging = false;
+            let ticking = false; // 用于 requestAnimationFrame 节流
+            let currentX, currentY, initialX, initialY;
+            let grabPieceOffsetX, grabPieceOffsetY;
+            let grabRow = 0, grabCol = 0;
+            let dragClone = null;
+
+            element.addEventListener('mousedown', dragStart);
+            element.addEventListener('touchstart', dragStart, {passive: false});
+
+            function dragStart(e) {
+                if (e.type === "touchstart") {
+                    initialX = e.touches[0].clientX;
+                    initialY = e.touches[0].clientY;
+                } else {
+                    initialX = e.clientX;
+                    initialY = e.clientY;
+                }
+
+                if (e.target.closest('.piece') === element) {
+                    isDragging = true;
+                    
+                    // 1. 精准定位：记录用户到底按住了形状的哪一个小块
+                    const clickedBlock = e.target.closest('div[data-row]');
+                    if (clickedBlock) {
+                        grabRow = parseInt(clickedBlock.dataset.row);
+                        grabCol = parseInt(clickedBlock.dataset.col);
+                    } else {
+                        // 兜底：如果没点准，默认取第一个实心块
+                        outer: for(let r=0; r<shape.length; r++) {
+                            for(let c=0; c<shape[0].length; c++) {
+                                if(shape[r][c] === 1) { grabRow=r; grabCol=c; break outer; }
+                            }
+                        }
+                    }
+
+                    // 2. 拷贝拖拽影像
+                    dragClone = element.cloneNode(true);
+                    dragClone.classList.add('dragging');
+                    
+                    // 3. 计算缩放比例
+                    const gridCell = document.querySelector('.cell');
+                    const pieceCell = element.querySelector('.piece-block') || element.querySelector('.piece-empty');
+                    
+                    const gridGap = parseFloat(window.getComputedStyle(gridElement).gap) || 2;
+                    const pieceGap = parseFloat(window.getComputedStyle(element).gap) || 2;
+                    
+                    const scale = (gridCell.offsetWidth + gridGap) / (pieceCell.offsetWidth + pieceGap);
+                    dragClone.dataset.scale = scale;
+
+                    // 设置影像基础样式
+                    dragClone.style.left = '0px';
+                    dragClone.style.top = '0px';
+                    dragClone.style.margin = '0px';
+                    dragClone.style.transformOrigin = 'top left';
+
+                    // 4. 计算偏移量
+                    const rect = element.getBoundingClientRect();
+                    grabPieceOffsetX = initialX - rect.left;
+                    grabPieceOffsetY = initialY - rect.top;
+                    
+                    dragClone.style.transform = `translate(${initialX - grabPieceOffsetX * scale}px, ${initialY - grabPieceOffsetY * scale}px) scale(${scale})`;
+                    
+                    document.body.appendChild(dragClone);
+                    
+                    element.style.visibility = 'hidden';
+
+                    document.addEventListener('mousemove', drag);
+                    document.addEventListener('touchmove', drag, {passive: false});
+                    document.addEventListener('mouseup', dragEnd);
+                    document.addEventListener('touchend', dragEnd);
+                }
+            }
+
+            function drag(e) {
+                if (!isDragging) return;
+                e.preventDefault(); 
+
+                if (e.type === "touchmove") {
+                    currentX = e.touches[0].clientX;
+                    currentY = e.touches[0].clientY;
+                } else {
+                    currentX = e.clientX;
+                    currentY = e.clientY;
+                }
+                
+                if (!ticking) {
+                    requestAnimationFrame(() => {
+                        updateDrag();
+                        ticking = false;
+                    });
+                    ticking = true;
+                }
+            }
+
+            function updateDrag() {
+                const scale = parseFloat(dragClone.dataset.scale);
+                const x = currentX - (grabPieceOffsetX * scale);
+                const y = currentY - (grabPieceOffsetY * scale);
+                dragClone.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+
+                clearHover();
+                
+                const cellPos = getGridCellFromPoint(currentX, currentY);
+                
+                if (cellPos) {
+                    const startRow = cellPos.row - grabRow;
+                    const startCol = cellPos.col - grabCol;
+                    
+                    dragClone.dataset.startRow = startRow;
+                    dragClone.dataset.startCol = startCol;
+                    
+                    if (canPlaceShape(shape, startRow, startCol)) {
+                        applyHover(shape, startRow, startCol);
+                        dragClone.dataset.valid = 'true';
+                    } else {
+                        dragClone.dataset.valid = 'false';
+                    }
+                } else {
+                    dragClone.dataset.valid = 'false';
+                }
+            }
+
+            function dragEnd(e) {
+                if (!isDragging) return;
+                isDragging = false;
+
+                document.removeEventListener('mousemove', drag);
+                document.removeEventListener('touchmove', drag);
+                document.removeEventListener('mouseup', dragEnd);
+                document.removeEventListener('touchend', dragEnd);
+
+                if (dragClone.dataset.valid === 'true') {
+                    const startRow = parseInt(dragClone.dataset.startRow);
+                    const startCol = parseInt(dragClone.dataset.startCol);
+                    placeShape(shape, startRow, startCol);
+                    
+                    element.remove();
+                    activePieces[pieceIndex] = null;
+                    
+                    checkLines();
+                    
+                    if (activePieces.every(p => p === null)) {
+                        generatePieces();
+                    } else {
+                        checkGameOver();
+                    }
+                } else {
+                    element.style.visibility = 'visible';
+                }
+
+                clearHover();
+                if (dragClone) dragClone.remove();
+            }
+        }
+
+        // ==========================================
+        // 游戏核心逻辑
+        // ==========================================
+
+        function canPlaceShape(shape, startRow, startCol) {
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[0].length; c++) {
+                    if (shape[r][c] === 1) {
+                        const targetRow = startRow + r;
+                        const targetCol = startCol + c;
+                        
+                        if (targetRow < 0 || targetRow >= GRID_SIZE || targetCol < 0 || targetCol >= GRID_SIZE) return false;
+                        if (grid[targetRow][targetCol] === 1) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function placeShape(shape, startRow, startCol) {
+            let blocksPlaced = 0;
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[0].length; c++) {
+                    if (shape[r][c] === 1) {
+                        grid[startRow + r][startCol + c] = 1;
+                        blocksPlaced++;
+                    }
+                }
+            }
+            updateScore(blocksPlaced);
+            drawGrid();
+        }
+
+        function applyHover(shape, startRow, startCol) {
+             for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[0].length; c++) {
+                    if (shape[r][c] === 1) {
+                        const targetRow = startRow + r;
+                        const targetCol = startCol + c;
+                        if (targetRow >= 0 && targetRow < GRID_SIZE && targetCol >= 0 && targetCol < GRID_SIZE) {
+                            const cell = document.querySelector(`.cell[data-row="${targetRow}"][data-col="${targetCol}"]`);
+                            if (cell) cell.classList.add('hover');
+                        }
+                    }
+                }
+            }
+        }
+
+        function clearHover() {
+            const hoveredCells = document.querySelectorAll('.cell.hover');
+            hoveredCells.forEach(cell => cell.classList.remove('hover'));
+        }
+
+        function checkLines() {
+            let rowsToClear = [];
+            let colsToClear = [];
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                let isFull = true;
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (grid[r][c] === 0) { isFull = false; break; }
+                }
+                if (isFull) rowsToClear.push(r);
+            }
+
+            for (let c = 0; c < GRID_SIZE; c++) {
+                let isFull = true;
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    if (grid[r][c] === 0) { isFull = false; break; }
+                }
+                if (isFull) colsToClear.push(c);
+            }
+
+            rowsToClear.forEach(r => {
+                for (let c = 0; c < GRID_SIZE; c++) grid[r][c] = 0;
+            });
+
+            colsToClear.forEach(c => {
+                for (let r = 0; r < GRID_SIZE; r++) grid[r][c] = 0;
+            });
+
+            const totalLinesCleared = rowsToClear.length + colsToClear.length;
+            if (totalLinesCleared > 0) {
+                const lineScore = totalLinesCleared * 10 * totalLinesCleared;
+                updateScore(lineScore);
+                drawGrid();
+            }
+        }
+
+        function updateScore(points) {
+            score += points;
+            scoreElement.innerText = score;
+        }
+
+        function checkGameOver() {
+            let canPlaceAny = false;
+            
+            for (let p of activePieces) {
+                if (p === null) continue;
+                
+                let pieceCanFit = false;
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        if (canPlaceShape(p, r, c)) {
+                            pieceCanFit = true;
+                            break;
+                        }
+                    }
+                    if (pieceCanFit) break;
+                }
+                
+                if (pieceCanFit) {
+                    canPlaceAny = true;
+                    break;
+                }
+            }
+
+            if (!canPlaceAny && activePieces.some(p => p !== null)) {
+                gameOverElement.style.display = 'block';
+                finalScoreElement.innerText = score;
+            }
+        }
+
+        function resetGame() {
+            grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
+            score = 0;
+            scoreElement.innerText = score;
+            gameOverElement.style.display = 'none';
+            drawGrid();
+            generatePieces();
+        }
+
+        initGrid();
+        generatePieces();
+
+    </script>
+</body>
+</html>
